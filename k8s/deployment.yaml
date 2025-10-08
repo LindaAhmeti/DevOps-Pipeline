@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linda-devops-deployment
+  labels:
+    app: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+      - name: linda-devops-container
+        image: lindaahmeti/app:1.0
+        imagePullPolicy: Always  
+        ports:
+        - containerPort: 3000
