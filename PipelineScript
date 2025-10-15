@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_USER = "lindaahmeti"
+        IMAGE_NAME = "linda-devops-app"
+        IMAGE_TAG = "1.0"
+        K8S_FOLDER = "k8s"
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub_token1')
+        KUBECONFIG = "C:\\Users\\linda\\.kube\\config" 
+    }
+
+    stages {
+
+        stage('Clean Workspace') {
+            steps {
+                cleanWs()
+            }
+        }
+
+        stage('Copy Local Source') {
+            steps {
+                script {
+                    echo "📂 Po kopjohet kodi lokal nga OneDrive..."
+                    bat 'xcopy /E /I /Y "C:\\Users\\linda\\OneDrive\\Desktop\\Task\\*" .'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    echo "🛠️ Ndërtimi i imazhit Docker..."
+                    bat 'docker build -f app\\Dockerfile -t %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG% app'
+                }
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                script {
+                    echo "🔐 Po lidhem me Docker Hub..."
+                    bat """
+                    echo %DOCKERHUB_CREDENTIALS_PSW% | docker login -u %DOCKERHUB_USER% --password-stdin
+                    """
+                }
+            }
+        }
+
+        stage('Push Docker Image to Docker Hub') {
+            steps {
+                script {
+                    echo "🚀 Po dërgohet imazhi në Docker Hub..."
+                    bat 'docker push %DOCKERHUB_USER%/%IMAGE_NAME%:%IMAGE_TAG%'
+                }
+            }
+        }
+
+        stage('Deploy to Minikube') {
+            steps {
+                script {
+                    echo "📦 Po bëhet deploy në Minikube..."
+                    bat """
+                    kubectl --kubeconfig=%KUBECONFIG% apply -f %K8S_FOLDER%\\deployment.yaml
+                    kubectl --kubeconfig=%KUBECONFIG% apply -f %K8S_FOLDER%\\service.yaml
+                    kubectl --kubeconfig=%KUBECONFIG% rollout restart deployment/linda-devops-deployment || echo "⚠️ Nuk u gjet deploy ekzistues"
+                    """
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    echo "🔍 Po verifikohet deployment-i..."
+                    bat """
+                    kubectl --kubeconfig=%KUBECONFIG% get pods
+                    kubectl --kubeconfig=%KUBECONFIG% get svc
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deploy u krye me sukses!"
+        }
+        failure {
+            echo "❌ Diçka shkoi keq gjatë ekzekutimit të pipeline-it."
+        }
+    }
+}
